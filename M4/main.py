@@ -60,11 +60,11 @@ insert_query = '''
     INSERT INTO nome_tabela (coluna1, coluna2) VALUES (%s, %s)
 '''
 cursor = conn.cursor()
-cursor.execute(insert_query, ("valor1", "valor2"))
+cursor.execute(insert_query, ("Texto1", "Texto2"))
 conn.commit()
 
-cursor.close()
-conn.close()
+# cursor.close()
+# conn.close()
 
 print("Dados inseridos com sucesso!")
 
