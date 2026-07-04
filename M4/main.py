@@ -84,7 +84,7 @@ conn.close()
 
 #UPDATE
 
-novo valor = "NovoTexto"
+novo_valor = "NovoTexto"
 valor_criterio = "Texto2"
 
 cur.execute("UPDATE nome_tabela SET coluna1 = %s WHERE coluna2 = %s", (novo_valor, valor_criterio))
