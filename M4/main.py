@@ -15,7 +15,7 @@ conn.autocommit = True
 #definir novo Banco de Dados
 #db_name = "postgres"
 
-#Criar uma sting SQL para ser executada
+#Criar uma string SQL para ser executada
 #create_db_query = sql.SQL("CREATE DATABASE {}").format(sql.Identifier(db_name))
 
 #Construindo um cursor para executar a query
@@ -45,6 +45,7 @@ conn.autocommit = True
 
 # print("Tabela criada com sucesso!")
 
+cur = conn.cursor()
 
 def create_table(connection):
     """Executa o CREATE TABLE corrigido no banco de dados."""
@@ -57,17 +58,17 @@ def create_table(connection):
 
 #INSERT
 
-insert_query = '''
-    INSERT INTO nome_tabela (coluna1, coluna2) VALUES (%s, %s)
-'''
-cur = conn.cursor()
-cur.execute(insert_query, ("Texto1", "Texto2"))
-conn.commit()
+# insert_query = '''
+#     INSERT INTO nome_tabela (coluna1, coluna2) VALUES (%s, %s)
+# '''
 
-# cursor.close()
-# conn.close()
+# cur.execute(insert_query, ("Texto16", "Texto25"))
+# conn.commit()
 
-print("Dados inseridos com sucesso!")
+# # cursor.close()
+# # conn.close()
+
+# print("Dados inseridos com sucesso!")
 
 
 #SELECT
@@ -84,8 +85,8 @@ for row in rows:
 
 #UPDATE
 
-novo_valor = "NovoTexto"
-valor_criterio = "Texto2"
+novo_valor = "NovoTexto61"
+valor_criterio = "Texto52"
 
 cur.execute("UPDATE nome_tabela SET coluna1 = %s WHERE coluna2 = %s", (novo_valor, valor_criterio))
 conn.commit()
@@ -94,7 +95,6 @@ rows = cur.fetchall()
 
 #for row in rows:
 print(row)
-
 
 
 
