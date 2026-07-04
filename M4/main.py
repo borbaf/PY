@@ -6,8 +6,8 @@ conn = psycopg2.connect(
     host="localhost",
     port=5432,
     dbname="postgres",
-    user="borbaf",
-    password="12345678"
+    user="postgres",
+    password="P$inUca01"
 )
 
 conn.autocommit = True
@@ -25,3 +25,5 @@ cursor.execute(create_db_query)
 #fechar o cursor e a conexão
 cursor.close()
 conn.close()
+
+print(f"Banco de dados '{db_name}' criado com sucesso!")
