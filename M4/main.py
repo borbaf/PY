@@ -80,3 +80,28 @@ for row in rows:
 
 cur.close()
 conn.close()
+
+
+#UPDATE
+
+novo valor = "NovoTexto"
+valor_criterio = "Texto2"
+
+cur.execute("UPDATE nome_tabela SET coluna1 = %s WHERE coluna2 = %s", (novo_valor, valor_criterio))
+conn.commit()
+cur.execute("SELECT * FROM nome_tabela")
+rows = cur.fetchall()
+
+#for row in rows:
+   print(row)
+
+
+
+
+
+
+
+
+cur.close()
+conn.close()
+
