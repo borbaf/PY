@@ -72,11 +72,11 @@ print("Dados inseridos com sucesso!")
 
 #SELECT
 
-cursor.execute("SELECT * FROM nome_tabela")
-rows = cursor.fetchall()
+cur.execute("SELECT * FROM nome_tabela")
+rows = cur.fetchall()
 
 for row in rows:
     print(row)
 
-cursor.close()
+cur.close()
 conn.close()
