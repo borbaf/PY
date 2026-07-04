@@ -7,7 +7,7 @@ conn = psycopg2.connect(
     port=5432,
     dbname="db_borbaf",
     user="postgres",
-    password="P$inUca01"
+    password="P$inUca01" #Senha Padrão para uso do PostgreSQL 15.3
 )
 
 conn.autocommit = True
@@ -19,7 +19,8 @@ conn.autocommit = True
 #create_db_query = sql.SQL("CREATE DATABASE {}").format(sql.Identifier(db_name))
 
 #Construindo um cursor para executar a query
-#cursor = conn.cursor()
+#cur = conn.cursor()
+
 #cursor.execute(create_db_query)
 
 #fechar o cursor e a conexão
@@ -47,10 +48,10 @@ conn.autocommit = True
 
 def create_table(connection):
     """Executa o CREATE TABLE corrigido no banco de dados."""
-    cursor = connection.cursor()
-    cursor.execute(CREATE_TABLE_SQL)
+    cur = connection.cursor()
+    cur.execute(CREATE_TABLE_SQL)
     connection.commit()
-    cursor.close()
+    cur.close()
 
 
 
@@ -59,8 +60,8 @@ def create_table(connection):
 insert_query = '''
     INSERT INTO nome_tabela (coluna1, coluna2) VALUES (%s, %s)
 '''
-cursor = conn.cursor()
-cursor.execute(insert_query, ("Texto1", "Texto2"))
+cur = conn.cursor()
+cur.execute(insert_query, ("Texto1", "Texto2"))
 conn.commit()
 
 # cursor.close()
@@ -71,11 +72,11 @@ print("Dados inseridos com sucesso!")
 
 #SELECT
 
-cur.execute("SELECT * FROM nome_tabela")
-rows = cur.fetchall()
+cursor.execute("SELECT * FROM nome_tabela")
+rows = cursor.fetchall()
 
 for row in rows:
     print(row)
 
-cur.close()
+cursor.close()
 conn.close()
