@@ -78,8 +78,8 @@ rows = cur.fetchall()
 for row in rows:
     print(row)
 
-cur.close()
-conn.close()
+# cur.close()
+# conn.close()
 
 
 #UPDATE
@@ -93,7 +93,7 @@ cur.execute("SELECT * FROM nome_tabela")
 rows = cur.fetchall()
 
 #for row in rows:
-   print(row)
+print(row)
 
 
 
