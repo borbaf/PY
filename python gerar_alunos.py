@@ -63,7 +63,7 @@ def gerar_base_estudantes(quantidade: int = 100) -> pd.DataFrame:
 
 
 def main() -> None:
-    quantidade_estudantes = 100
+    quantidade_estudantes = 380
     arquivo_saida = "base_estudantes.xlsx"
 
     df = gerar_base_estudantes(quantidade=quantidade_estudantes)
