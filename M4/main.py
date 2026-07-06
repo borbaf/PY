@@ -1,107 +1,69 @@
-import psycopg2
-from psycopg2 import sql
+# ============================================================================
+# Arquivo: main.py
+# ============================================================================
+#"""Arquivo principal que integra todas as operações de banco de dados.
+
+#Este script demonstra o uso dos módulos de conexão, criação de tabela,
+#inserção, seleção e atualização no PostgreSQL.
+"""
+
+# Importações dos módulos criados
+# from db_connection import create_connection, close_connection
+# from db_create_table import create_table
+# from db_insert import insert_usuario
+# from db_select import select_usuarios, select_usuario_por_id
+# from db_update import update_usuario
 
 
-conn = psycopg2.connect(
-    host="localhost",
-    port=5432,
-    dbname="db_borbaf",
-    user="postgres",
-    password="P$inUca01" #Senha Padrão para uso do PostgreSQL 15.3
-)
+def main():
+    """Função principal que executa o fluxo completo de operações."""
+    # Configurações do banco de dados
+    DB_NAME = "meu_banco"
+    DB_USER = "postgres"
+    DB_PASSWORD = "senha123"
+    DB_HOST = "localhost"
+    DB_PORT = "5432"
 
-conn.autocommit = True
+    # 1. Criar conexão
+    connection = create_connection(DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT)
+    if connection is None:
+        print("Não foi possível estabelecer conexão. Encerrando.")
+        return
 
-#definir novo Banco de Dados
-#db_name = "postgres"
+    try:
+        # 2. Criar tabela
+        create_table(connection, table_name="usuarios")
 
-#Criar uma string SQL para ser executada
-#create_db_query = sql.SQL("CREATE DATABASE {}").format(sql.Identifier(db_name))
+        # 3. Inserir usuários
+        insert_usuario(connection, nome="Alice Souza", email="alice@example.com", idade=28)
+        insert_usuario(connection, nome="Bruno Lima", email="bruno@example.com", idade=34)
+        insert_usuario(connection, nome="Carla Dias", email="carla@example.com", idade=22)
 
-#Construindo um cursor para executar a query
-#cur = conn.cursor()
+        # 4. Selecionar todos os usuários
+        print("\n--- Listando todos os usuários ---")
+        select_usuarios(connection)
 
-#cursor.execute(create_db_query)
+        # 5. Selecionar usuário por ID
+        print("\n--- Buscando usuário por ID ---")
+        select_usuario_por_id(connection, usuario_id=1)
 
-#fechar o cursor e a conexão
-#cursor.close()
-#conn.close()
+        # 6. Atualizar usuário
+        print("\n--- Atualizando usuário ---")
+        update_usuario(connection, usuario_id=1, nome="Alice Souza Lima", idade=29)
 
-#print(f"Banco de dados '{db_name}' criado com sucesso!")
+        # 7. Selecionar novamente para confirmar atualização
+        print("\n--- Listando usuários após atualização ---")
+        select_usuarios(connection)
 
-
-# create_table_query = '''
-#     CREATE TABLE nome_tabela (
-#     coluna1 VARCHAR(255),
-#     coluna2 VARCHAR(255)
-#     )
-# '''
-# cursor = conn.cursor()
-# cursor.execute(create_table_query)
-# conn.commit()
-
-# cursor.close()
-# conn.close()
-
-# print("Tabela criada com sucesso!")
-
-cur = conn.cursor()
-
-def create_table(connection):
-    """Executa o CREATE TABLE corrigido no banco de dados."""
-    cur = connection.cursor()
-    cur.execute(CREATE_TABLE_SQL)
-    connection.commit()
-    cur.close()
+    finally:
+        # 8. Fechar conexão
+        close_connection(connection)
 
 
-
-#INSERT
-
-# insert_query = '''
-#     INSERT INTO nome_tabela (coluna1, coluna2) VALUES (%s, %s)
-# '''
-
-# cur.execute(insert_query, ("Texto16", "Texto25"))
-# conn.commit()
-
-# # cursor.close()
-# # conn.close()
-
-# print("Dados inseridos com sucesso!")
+if __name__ == "__main__":
+    main()
 
 
-#SELECT
-
-cur.execute("SELECT * FROM nome_tabela")
-rows = cur.fetchall()
-
-for row in rows:
-    print(row)
-
-# cur.close()
-# conn.close()
-
-
-#UPDATE
-
-novo_valor = "NovoTexto61"
-valor_criterio = "Texto52"
-
-cur.execute("UPDATE nome_tabela SET coluna1 = %s WHERE coluna2 = %s", (novo_valor, valor_criterio))
-conn.commit()
-cur.execute("SELECT * FROM nome_tabela")
-rows = cur.fetchall()
-
-#for row in rows:
-print(row)
-
-
-
-
-
-
-
-cur.close()
-conn.close()
-
+# ============================================================================
+# Fim do arquivo: main.py
+# ============================================================================
