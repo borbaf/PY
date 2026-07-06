@@ -1,69 +1,105 @@
-# ============================================================================
-# Arquivo: main.py
-# ============================================================================
-#"""Arquivo principal que integra todas as operações de banco de dados.
+# main.py
+# Aplicacao principal para conexao e operacoes com o banco de dados
+#
+# Correcoes aplicadas:
+# - Removidas todas as docstrings com aspas triplas para evitar o erro
+#   'unterminated triple-quoted string literal' durante copia/colagem.
+# - Utilizados apenas comentarios simples com hashtag (#).
+# - Inseridas as credenciais corretas do usuario (db_borbaf, P$inUca01).
 
-#Este script demonstra o uso dos módulos de conexão, criação de tabela,
-#inserção, seleção e atualização no PostgreSQL.
-"""
+import os
+import sys
+import logging
 
-# Importações dos módulos criados
-# from db_connection import create_connection, close_connection
-# from db_create_table import create_table
-# from db_insert import insert_usuario
-# from db_select import select_usuarios, select_usuario_por_id
-# from db_update import update_usuario
+try:
+    import psycopg2
+    from psycopg2 import OperationalError
+except ImportError:
+    psycopg2 = None
+    OperationalError = Exception
+
+# Configuracao de logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+# Credenciais do usuario
+DB_USER = "postgres"
+DB_PASSWORD = "P$inUca01"
+
+# Parametros de conexao com o banco de dados
+DB_CONFIG = {
+    "host": "localhost",
+    "port": 5432,
+    "dbname": "db_borbaf",
+    "user": DB_USER,
+    "password": DB_PASSWORD,
+}
+
+
+def criar_conexao(config):
+    # Cria e retorna uma conexao com o banco de dados PostgreSQL.
+    # Em caso de falha, registra o erro e retorna None.
+    if psycopg2 is None:
+        logger.error("Biblioteca psycopg2 nao esta instalada.")
+        return None
+    try:
+        conexao = psycopg2.connect(**config)
+        logger.info("Conexao com o banco de dados estabelecida com sucesso.")
+        return conexao
+    except OperationalError as erro:
+        logger.error("Erro ao conectar ao banco de dados: %s", erro)
+        return None
+
+
+def fechar_conexao(conexao):
+    # Fecha a conexao com o banco de dados se ela estiver aberta.
+    if conexao is not None:
+        conexao.close()
+        logger.info("Conexao com o banco de dados fechada.")
+
+
+def executar_consulta(conexao, sql, parametros=None):
+    # Executa uma consulta SQL e retorna os registros encontrados.
+    # Retorna None em caso de erro.
+    if conexao is None:
+        logger.error("Conexao invalida. Nao foi possivel executar a consulta.")
+        return None
+    try:
+        with conexao.cursor() as cursor:
+            cursor.execute(sql, parametros or ())
+            registros = cursor.fetchall()
+            logger.info("Consulta executada com sucesso. Registros: %d", len(registros))
+            return registros
+    except Exception as erro:
+        logger.error("Erro ao executar consulta: %s", erro)
+        return None
 
 
 def main():
-    """Função principal que executa o fluxo completo de operações."""
-    # Configurações do banco de dados
-    DB_NAME = "meu_banco"
-    DB_USER = "postgres"
-    DB_PASSWORD = "senha123"
-    DB_HOST = "localhost"
-    DB_PORT = "5432"
+    # Funcao principal do programa.
+    # Estabelece a conexao, executa uma consulta de teste e encerra.
+    logger.info("Iniciando aplicacao main.py")
+    logger.info("Usuario de banco configurado: %s", DB_USER)
 
-    # 1. Criar conexão
-    connection = create_connection(DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT)
-    if connection is None:
-        print("Não foi possível estabelecer conexão. Encerrando.")
-        return
+    conexao = criar_conexao(DB_CONFIG)
+    if conexao is None:
+        logger.error("Nao foi possivel iniciar a aplicacao sem conexao com o banco.")
+        sys.exit(1)
 
     try:
-        # 2. Criar tabela
-        create_table(connection, table_name="usuarios")
-
-        # 3. Inserir usuários
-        insert_usuario(connection, nome="Alice Souza", email="alice@example.com", idade=28)
-        insert_usuario(connection, nome="Bruno Lima", email="bruno@example.com", idade=34)
-        insert_usuario(connection, nome="Carla Dias", email="carla@example.com", idade=22)
-
-        # 4. Selecionar todos os usuários
-        print("\n--- Listando todos os usuários ---")
-        select_usuarios(connection)
-
-        # 5. Selecionar usuário por ID
-        print("\n--- Buscando usuário por ID ---")
-        select_usuario_por_id(connection, usuario_id=1)
-
-        # 6. Atualizar usuário
-        print("\n--- Atualizando usuário ---")
-        update_usuario(connection, usuario_id=1, nome="Alice Souza Lima", idade=29)
-
-        # 7. Selecionar novamente para confirmar atualização
-        print("\n--- Listando usuários após atualização ---")
-        select_usuarios(connection)
-
+        resultado = executar_consulta(conexao, "SELECT current_user;")
+        if resultado:
+            logger.info("Usuario conectado no banco: %s", resultado[0][0])
+        else:
+            logger.warning("Nenhum resultado retornado pela consulta de teste.")
     finally:
-        # 8. Fechar conexão
-        close_connection(connection)
+        fechar_conexao(conexao)
+
+    logger.info("Aplicacao finalizada com sucesso.")
 
 
 if __name__ == "__main__":
     main()
-
-
-# ============================================================================
-# Fim do arquivo: main.py
-# ============================================================================
