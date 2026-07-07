@@ -1,13 +1,3 @@
-# =====================================================================
-# PROJETO: Análise Exploratória de Dados (EDA) - Sample Superstore
-# DESCRIÇÃO: Script completo de EDA para desafio de Data Science
-# AUTOR: Estudante de Data Science
-# DATA: 2024
-# =====================================================================
-
-# ---------------------------------------------------------------------
-# 1. IMPORTAÇÃO DAS BIBLIOTECAS
-# ---------------------------------------------------------------------
 import os
 import numpy as np
 import pandas as pd
@@ -74,7 +64,7 @@ def etapa1_importacao_compreensao():
             "Certifique-se de que 'Sample - Superstore.csv' está na mesma pasta do script."
         )
 
-    # Carregamento do CSV com encoding cp1252 (comum em datasets do Windows)
+    # Carregamento do CSV com encoding cp1252 para evitar problemas com caracteres especiais
     df = pd.read_csv(CSV_PATH, encoding="cp1252")
     print("[INFO] Dataset carregado com sucesso!\n")
 
