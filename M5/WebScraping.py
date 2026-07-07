@@ -21,7 +21,7 @@ html = urlopen(url)
 
 bs = BeautifulSoup(html.read(), "html.parser")
 
-linhas = bs.find_all('tr',{"class": "even"})
+linhas = bs.find_all('tr',{"class": "medium-widget blog-widget"})
 
 print(linhas)
 
