@@ -4,6 +4,11 @@ FROM python:3.12.4-slim
 #Definir o diretório de trabalho dentro do contêiner
 WORKDIR /app
 
+
+RUN apt-get update && apt-get install -y gcc libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+
 #Copiar os arquivos de requisitos para o contêiner
 COPY requirements.txt /app/
 
