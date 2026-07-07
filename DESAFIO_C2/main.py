@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+import seaborn as sns
+    
 
 # Obtém o caminho absoluto do diretório onde este script está localizado.
 # __file__ é o caminho do próprio arquivo .py, os.path.abspath garante o caminho
