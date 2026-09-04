@@ -1,0 +1,7 @@
+SELECT DISTINCT salary AS second_highest_salary
+FROM Employee
+ORDER BY salary DESC
+OFFSET 1 ROW
+FETCH NEXT 1 ROW ONLY;
+-- MySQL: OFFSET 1 LIMIT 1
+-- Postgres: OFFSET 1 FETCH FIRST 1 ROW ONLY
