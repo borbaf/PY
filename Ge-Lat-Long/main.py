@@ -1,7 +1,10 @@
 """
 Demonstração do agente Ge-Lat-Long.
+
 Executa perguntas em linguagem natural, cronometra cada consulta e exibe
-o tempo de resposta (2º critério avaliado pelo cliente).
+o tempo de resposta (2º critério avaliado pelo cliente). O entregável
+principal é o tempo de viagem estimado com contexto de trânsito real
+do Google Maps (1º critério).
 """
 import statistics
 import time
