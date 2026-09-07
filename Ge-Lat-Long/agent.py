@@ -5,7 +5,6 @@ Combina dados proprietários (BigQuery) com dados reais do Google Maps
 através de function calling do Gemini. O modelo decide, em linguagem
 natural, quando consultar rotas, geocodificação ou a torre de controle.
 """
-import os
 from typing import Callable
 
 from dotenv import load_dotenv
@@ -66,6 +65,24 @@ TOOLS = [
                 "description": "Retorna KPIs agregados de desempenho das entregas.",
                 "parameters": {"type": "object", "properties": {}},
             },
+            {
+                "name": "register_address",
+                "description": (
+                    "Cadastra um novo endereço na tabela de cadastro de endereços (address_book). "
+                    "Recebe o endereço em texto, o tipo ('ORIGEM' ou 'DESTINO') e opcionalmente o cliente. "
+                    "A função geocodifica o endereço (lat/lng) via Google Maps e insere na tabela. "
+                    "Use para simular a adição de uma nova origem ou destino na operação."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "address": {"type": "string"},
+                        "address_type": {"type": "string", "enum": ["ORIGEM", "DESTINO"]},
+                        "client_name": {"type": "string"},
+                    },
+                    "required": ["address", "address_type"],
+                },
+            },
         ]
     )
 ]
@@ -78,7 +95,9 @@ SYSTEM_INSTRUCTION = (
     "2) Quando a tarefa envolver calcular rota para VÁRIAS entregas, chame route_metrics "
     "UMA vez para CADA entrega, em iterações sucessivas, até ter o tempo de viagem de todas. "
     "3) Só produza a resposta final em texto DEPOIS de executar todas as chamadas necessárias. "
-    "4) Quando o usuário pedir todas as entregas, calcule TODAS — não pergunte qual ele quer."
+    "4) Quando o usuário pedir todas as entregas, calcule TODAS — não pergunte qual ele quer. "
+    "5) Quando o usuário pedir para cadastrar um endereço, use register_address e confirme "
+    "o ID e as coordenadas retornadas."
 )
 
 class LogisticsAgent:
@@ -99,7 +118,31 @@ class LogisticsAgent:
             "geocode_address": self.maps.geocode,
             "shipments_by_client": self.bq.get_shipments_by_client,
             "control_tower_kpis": self.bq.get_control_tower_kpis,
+            "register_address": self._register_address,
         }
+
+    def _register_address(self, address: str, address_type: str, client_name: str = "") -> str:
+        """Geocodifica o endereço e o cadastra na tabela address_book."""
+        try:
+            geo = self.maps.geocode(address)
+        except Exception as exc:
+            return f"Falha ao geocodificar '{address}': {exc}"
+
+        # Aceita retorno em tupla (lat, lng) ou dict {"lat":..., "lng":...}
+        if isinstance(geo, (tuple, list)) and len(geo) >= 2:
+            lat, lng = geo[0], geo[1]
+        elif isinstance(geo, dict):
+            lat, lng = geo.get("lat"), geo.get("lng")
+        else:
+            return f"Formato de geocodificação inesperado: {geo}"
+
+        return self.bq.insert_address(
+            address=address,
+            lat=lat,
+            lng=lng,
+            address_type=address_type,
+            client_name=client_name,
+        )
 
     def _run_function(self, call) -> str:
         """Executa a função solicitada pelo modelo e serializa o resultado."""
@@ -138,8 +181,7 @@ class LogisticsAgent:
                 )
             )
 
-            # Turno da ferramenta: TODAS as respostas agrupadas em UMA mensagem,
-            # uma parte function_response por chamada (exigência da API)
+            # Turno da ferramenta: TODAS as respostas agrupadas em UMA mensagem
             messages.append(
                 types.Content(
                     role="tool",
