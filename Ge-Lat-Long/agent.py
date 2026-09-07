@@ -13,6 +13,7 @@ from google.genai import types
 
 from bigquery_client import BigQueryClient
 from maps_client import MapsClient
+import time
 
 load_dotenv()
 
@@ -162,14 +163,8 @@ class LogisticsAgent:
         messages = [types.Content(role="user", parts=[types.Part(text=user_prompt)])]
 
         for _ in range(max_iterations):
-            response = self.client.models.generate_content(
-                model=self.model,
-                contents=messages,
-                config=types.GenerateContentConfig(
-                    tools=TOOLS,
-                    system_instruction=SYSTEM_INSTRUCTION,
-                ),
-            )
+             response = self._generate_with_retry(messages),
+
             if not response.function_calls:
                 return response.text
 
@@ -197,3 +192,25 @@ class LogisticsAgent:
                 )
             )
         return "Número máximo de iterações atingido."
+    
+    def _generate_with_retry(self, messages, max_retries: int = 5):
+        """Chama o Gemini com retry e backoff para erros 429 (rate limit)."""
+        for attempt in range(max_retries):
+            try:
+                return self.client.models.generate_content(
+                    model=self.model,
+                    contents=messages,
+                    config=types.GenerateContentConfig(
+                        tools=TOOLS,
+                        system_instruction=SYSTEM_INSTRUCTION,
+                    ),
+                )
+            except Exception as exc:
+                # Só faz retry para 429 (quota/rate limit)
+                if "429" not in str(exc) and "RESOURCE_EXHAUSTED" not in str(exc):
+                    raise
+                if attempt == max_retries - 1:
+                    raise
+                # Backoff exponencial: 5s, 10s, 20s, 40s
+                time.sleep(5 * (2 ** attempt))
+        raise RuntimeError("Falha após retries por rate limit")

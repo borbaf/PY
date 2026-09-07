@@ -1,6 +1,11 @@
 """
 Setup do BigQuery: cria/recria as tabelas da torre de controle logística.
 Idempotente: apaga e recria as tabelas a cada execução.
+
+Usa CARGA EM LOTE (load_table_from_json) em vez de streaming insert
+(insert_rows_json). Isso grava direto no armazenamento, permitindo que o
+enrich_routes.py faça UPDATE imediato nas linhas (streaming buffer não
+suporta UPDATE/DELETE/MERGE).
 """
 import os
 from datetime import datetime, timedelta, timezone
@@ -123,10 +128,17 @@ rows = [
         "carrier": "LogiForte",
     },
 ]
-errors = client.insert_rows_json(f"{dataset_ref}.{TABLE}", rows)
-if errors:
-    raise RuntimeError(f"Erro ao inserir entregas: {errors}")
-print("6 linhas inseridas OK (distance_km/duration_min aguardando enrich_routes.py)")
+
+# CARGA EM LOTE (não streaming): grava direto no armazenamento
+load_config = bigquery.LoadJobConfig(
+    schema=schema,
+    write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
+)
+load_job = client.load_table_from_json(
+    rows, f"{dataset_ref}.{TABLE}", job_config=load_config
+)
+load_job.result()
+print("6 linhas inseridas OK via carga em lote (UPDATE agora suportado)")
 
 # --- Tabela de cadastro de endereços (address_book) ---
 print("Removendo tabela antiga address_book (idempotente)...")
@@ -150,18 +162,21 @@ seed_addresses = [
     ("ADR-002", "Av. Paulista, 1000, São Paulo, SP", None, None, "DESTINO", "FarmaPlus"),
     ("ADR-003", "Rua Augusta, 500, São Paulo, SP", None, None, "DESTINO", "MercadoVita"),
 ]
-errors = client.insert_rows_json(
-    f"{dataset_ref}.{ADDRESS_TABLE}",
-    [
-        {
-            "address_id": a[0], "address": a[1], "lat": a[2], "lng": a[3],
-            "address_type": a[4], "client_name": a[5],
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        }
-        for a in seed_addresses
-    ],
+seed_rows = [
+    {
+        "address_id": a[0], "address": a[1], "lat": a[2], "lng": a[3],
+        "address_type": a[4], "client_name": a[5],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    for a in seed_addresses
+]
+addr_load_config = bigquery.LoadJobConfig(
+    schema=address_schema,
+    write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
 )
-if errors:
-    raise RuntimeError(f"Erro ao inserir endereços seed: {errors}")
-print("Endereços seed inseridos OK")
+addr_load_job = client.load_table_from_json(
+    seed_rows, f"{dataset_ref}.{ADDRESS_TABLE}", job_config=addr_load_config
+)
+addr_load_job.result()
+print("Endereços seed inseridos OK via carga em lote")
 print("Setup concluído.")
