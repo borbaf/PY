@@ -1,0 +1,14 @@
+# Segredos - NUNCA commitar
+.env
+
+# Ambiente virtual
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.pyc
+
+# IDE
+.vscode/
+.idea/
