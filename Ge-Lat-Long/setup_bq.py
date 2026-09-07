@@ -1,192 +1,92 @@
-"""
-Setup do BigQuery: cria/recria as tabelas da torre de controle logística.
-Idempotente: apaga e recria as tabelas a cada execução.
-
-Usa CARGA EM LOTE (load_table_from_json) em vez de streaming insert
-(insert_rows_json). Isso grava direto no armazenamento, permitindo que o
-enrich_routes.py faça UPDATE imediato nas linhas (streaming buffer não
-suporta UPDATE/DELETE/MERGE).
-
-As entregas da FarmaPlus têm DESTINOS DIFERENTES (Paulista, Tatuapé e
-Eldorado) para que a demo do agente mostre tempos de rota distintos por
-entrega, evidenciando o cálculo real com trânsito do Google Maps.
-"""
 import os
-from datetime import datetime, timedelta, timezone
-
-from dotenv import load_dotenv
+import random
+import datetime
+from datetime import timedelta
 from google.cloud import bigquery
 
-load_dotenv()
+# ============================================================
+# CONFIGURAÇÃO
+# ============================================================
+PROJECT_ID = "coherent-voice-420518"
+DATASET = "logistics"
+TABLE = "vw_control_tower_dashboard"
 
-PROJECT = os.getenv("GCP_PROJECT_ID", "coherent-voice-420518")
-DATASET = os.getenv("BQ_DATASET", "logistics")
-TABLE = os.getenv("BQ_TABLE_CONTROL_TOWER", "control_tower_shipments")
-ADDRESS_TABLE = os.getenv("BQ_TABLE_ADDRESS_BOOK", "address_book")
+# Caminho da chave de serviço (ajuste se necessário)
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "caminho/para/sua-chave.json"
 
-client = bigquery.Client(project=PROJECT)
+client = bigquery.Client(project=PROJECT_ID)
 
-# --- Dataset ---
-dataset_ref = f"{PROJECT}.{DATASET}"
-client.create_dataset(dataset_ref, exists_ok=True)
-print(f"Dataset {DATASET} OK")
-
-# --- Tabela de entregas (control_tower_shipments) ---
-print("Removendo tabela antiga (idempotente)...")
-client.delete_table(f"{dataset_ref}.{TABLE}", not_found_ok=True)
-
-schema = [
-    bigquery.SchemaField("shipment_id", "STRING", mode="REQUIRED"),
-    bigquery.SchemaField("client_name", "STRING"),
-    bigquery.SchemaField("origin_address", "STRING"),
-    bigquery.SchemaField("destination_address", "STRING"),
-    bigquery.SchemaField("origin_lat", "FLOAT64"),
-    bigquery.SchemaField("origin_lng", "FLOAT64"),
-    bigquery.SchemaField("destination_lat", "FLOAT64"),
-    bigquery.SchemaField("destination_lng", "FLOAT64"),
-    bigquery.SchemaField("scheduled_delivery", "TIMESTAMP"),
-    bigquery.SchemaField("actual_delivery", "TIMESTAMP"),
-    bigquery.SchemaField("status", "STRING"),  # 'ON_TIME' | 'LATE'
-    bigquery.SchemaField("carrier", "STRING"),
-    # --- NOVO: dados reais de rota (preenchidos pelo enrich_routes.py) ---
-    bigquery.SchemaField("distance_km", "FLOAT64"),
-    bigquery.SchemaField("duration_min", "FLOAT64"),
-]
-table = bigquery.Table(f"{dataset_ref}.{TABLE}", schema=schema)
-client.create_table(table)
-print(f"Tabela {TABLE} recriada OK")
-
-# Seed: 6 entregas, datas de hoje
-# FarmaPlus (SHIP-001/003/005) com destinos VARIADOS para a demo:
-#   SHIP-001 -> Av. Paulista        (~32 km, centro)
-#   SHIP-003 -> Tatuapé             (~menor distância, zona leste)
-#   SHIP-005 -> Shopping Eldorado   (~maior distância, zona oeste)
-today = datetime.now(timezone.utc).date()
-rows = [
-    {
-        "shipment_id": "SHIP-001",
-        "client_name": "FarmaPlus",
-        "origin_address": "CD Guarulhos, SP",
-        "destination_address": "Av. Paulista, 1000, São Paulo, SP",
-        "origin_lat": -23.4655, "origin_lng": -46.5324,
-        "destination_lat": -23.5614, "destination_lng": -46.6559,
-        "scheduled_delivery": f"{today}T09:00:00",
-        "actual_delivery": f"{today}T09:12:00",
-        "status": "ON_TIME",
-        "carrier": "TransRapida",
-    },
-    {
-        "shipment_id": "SHIP-002",
-        "client_name": "MercadoVita",
-        "origin_address": "CD Guarulhos, SP",
-        "destination_address": "Rua Augusta, 500, São Paulo, SP",
-        "origin_lat": -23.4655, "origin_lng": -46.5324,
-        "destination_lat": -23.5545, "destination_lng": -46.6493,
-        "scheduled_delivery": f"{today}T10:00:00",
-        "actual_delivery": f"{today}T10:55:00",
-        "status": "LATE",
-        "carrier": "TransRapida",
-    },
-    {
-        "shipment_id": "SHIP-003",
-        "client_name": "FarmaPlus",
-        "origin_address": "CD Guarulhos, SP",
-        "destination_address": "Shopping Metrô Tatuapé, Rua Domingos Agostim, 91, São Paulo, SP",
-        "origin_lat": -23.4655, "origin_lng": -46.5324,
-        "destination_lat": -23.5405, "destination_lng": -46.5754,
-        "scheduled_delivery": f"{today}T11:00:00",
-        "actual_delivery": f"{today}T11:08:00",
-        "status": "ON_TIME",
-        "carrier": "LogiForte",
-    },
-    {
-        "shipment_id": "SHIP-004",
-        "client_name": "AtacadoDia",
-        "origin_address": "CD Guarulhos, SP",
-        "destination_address": "Rua da Consolação, 900, São Paulo, SP",
-        "origin_lat": -23.4655, "origin_lng": -46.5324,
-        "destination_lat": -23.5520, "destination_lng": -46.6590,
-        "scheduled_delivery": f"{today}T13:00:00",
-        "actual_delivery": f"{today}T13:45:00",
-        "status": "LATE",
-        "carrier": "LogiForte",
-    },
-    {
-        "shipment_id": "SHIP-005",
-        "client_name": "FarmaPlus",
-        "origin_address": "CD Guarulhos, SP",
-        "destination_address": "Shopping Eldorado, Av. Rebouças, 3970, São Paulo, SP",
-        "origin_lat": -23.4655, "origin_lng": -46.5324,
-        "destination_lat": -23.5650, "destination_lng": -46.6870,
-        "scheduled_delivery": f"{today}T14:00:00",
-        "actual_delivery": f"{today}T14:50:00",
-        "status": "LATE",
-        "carrier": "TransRapida",
-    },
-    {
-        "shipment_id": "SHIP-006",
-        "client_name": "MercadoVita",
-        "origin_address": "CD Guarulhos, SP",
-        "destination_address": "Rua Augusta, 500, São Paulo, SP",
-        "origin_lat": -23.4655, "origin_lng": -46.5324,
-        "destination_lat": -23.5545, "destination_lng": -46.6493,
-        "scheduled_delivery": f"{today}T15:00:00",
-        "actual_delivery": f"{today}T15:05:00",
-        "status": "ON_TIME",
-        "carrier": "LogiForte",
-    },
+# ============================================================
+# DADOS DAS ENTREGAS (mesmas rotas de sempre)
+# ============================================================
+# (origem, destino, lat_dest, lng_dest, transportadora)
+rotas = [
+    ("CD Centro - São Paulo, SP", "Av. Paulista, 1000 - São Paulo, SP", -23.5614, -46.6559, "TransRapida"),
+    ("CD Centro - São Paulo, SP", "Rua Augusta, 2500 - São Paulo, SP", -23.5561, -46.6641, "TransRapida"),
+    ("CD Sul - Santo André, SP",     "Av. do Estado, 500 - São Paulo, SP", -23.5410, -46.6120, "LogiForte"),
+    ("CD Sul - Santo André, SP",     "Rua Vergueiro, 3000 - São Paulo, SP", -23.5880, -46.6330, "LogiForte"),
+    ("CD Leste - Guarulhos, SP",     "Av. Tiradentes, 700 - São Paulo, SP", -23.5250, -46.6330, "TransRapida"),
+    ("CD Leste - Guarulhos, SP",     "Rua 25 de Março, 800 - São Paulo, SP", -23.5410, -46.6340, "LogiForte"),
 ]
 
-# CARGA EM LOTE (não streaming): grava direto no armazenamento
-load_config = bigquery.LoadJobConfig(
-    schema=schema,
-    write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
-)
-load_job = client.load_table_from_json(
-    rows, f"{dataset_ref}.{TABLE}", job_config=load_config
-)
-load_job.result()
-print("6 linhas inseridas OK via carga em lote (UPDATE agora suportado)")
+# ============================================================
+# GERA AS ENTREGAS DISTRIBUÍDAS NOS ÚLTIMOS 7 DIAS
+# ============================================================
+hoje = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
-# --- Tabela de cadastro de endereços (address_book) ---
-print("Removendo tabela antiga address_book (idempotente)...")
-client.delete_table(f"{dataset_ref}.{ADDRESS_TABLE}", not_found_ok=True)
+registros = []
+for i, (origem, destino, lat, lng, transportadora) in enumerate(rotas):
+    # Cada entrega cai num dia diferente dos últimos 7 dias
+    dias_atras = i % 7                      # 0,1,2,3,4,5,6
+    data_base = hoje - timedelta(days=dias_atras)
 
-address_schema = [
-    bigquery.SchemaField("address_id", "STRING", mode="REQUIRED"),
-    bigquery.SchemaField("address", "STRING", mode="REQUIRED"),
-    bigquery.SchemaField("lat", "FLOAT64"),
-    bigquery.SchemaField("lng", "FLOAT64"),
-    bigquery.SchemaField("address_type", "STRING", mode="REQUIRED"),  # 'ORIGEM' | 'DESTINO'
-    bigquery.SchemaField("client_name", "STRING"),
-    bigquery.SchemaField("created_at", "TIMESTAMP"),
-]
-address_table = bigquery.Table(f"{dataset_ref}.{ADDRESS_TABLE}", schema=address_schema)
-client.create_table(address_table)
-print(f"Tabela {ADDRESS_TABLE} recriada OK")
+    # Horário de agendamento: manhã (08h) ou tarde (14h), alternando
+    hora = 8 if i % 2 == 0 else 14
+    scheduled = data_base.replace(hour=hora, minute=random.randint(0, 59))
 
-seed_addresses = [
-    ("ADR-001", "CD Guarulhos, SP", None, None, "ORIGEM", None),
-    ("ADR-002", "Av. Paulista, 1000, São Paulo, SP", None, None, "DESTINO", "FarmaPlus"),
-    ("ADR-003", "Rua Augusta, 500, São Paulo, SP", None, None, "DESTINO", "MercadoVita"),
-    ("ADR-004", "Shopping Metrô Tatuapé, Rua Domingos Agostim, 91, São Paulo, SP", None, None, "DESTINO", "FarmaPlus"),
-    ("ADR-005", "Shopping Eldorado, Av. Rebouças, 3970, São Paulo, SP", None, None, "DESTINO", "FarmaPlus"),
-]
-seed_rows = [
-    {
-        "address_id": a[0], "address": a[1], "lat": a[2], "lng": a[3],
-        "address_type": a[4], "client_name": a[5],
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    }
-    for a in seed_addresses
-]
-addr_load_config = bigquery.LoadJobConfig(
-    schema=address_schema,
-    write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
-)
-addr_load_job = client.load_table_from_json(
-    seed_rows, f"{dataset_ref}.{ADDRESS_TABLE}", job_config=addr_load_config
-)
-addr_load_job.result()
-print("Endereços seed inseridos OK via carga em lote")
-print("Setup concluído.")
+    # Entrega: +2 a +4 horas depois do agendamento
+    delivery = scheduled + timedelta(hours=random.randint(2, 4))
+
+    # Status: ~50% on-time, ~50% late (para bater com os scorecards)
+    on_time = random.random() > 0.5
+    status = "ON_TIME" if on_time else "LATE"
+    is_on_time = 1 if on_time else 0
+    is_late = 0 if on_time else 1
+
+    # Distância e duração (valores realistas)
+    distance_km = round(random.uniform(8, 35), 1)
+    duration_min = round(distance_km * random.uniform(1.5, 2.5), 0)
+
+    registros.append({
+        "shipment_id": f"SHP-{1000 + i}",
+        "origin_address": origem,
+        "destination_address": destino,
+        "destination_lat": lat,
+        "destination_lng": lng,
+        "carrier": transportadora,
+        "status": status,
+        "is_on_time": is_on_time,
+        "is_late": is_late,
+        "distance_km": distance_km,
+        "duration_min": duration_min,
+        "scheduled_delivery": scheduled,
+        "delivery_date": delivery,
+    })
+
+# ============================================================
+# INSERE NO BIGQUERY (substitui os dados antigos)
+# ============================================================
+table_ref = client.dataset(DATASET).table(TABLE)
+
+# Apaga os dados antigos para evitar duplicação
+client.query(f"DELETE FROM `{PROJECT_ID}.{DATASET}.{TABLE} WHERE TRUE").result()
+
+# Insere os novos registros
+errors = client.insert_rows_json(table_ref, registros)
+if errors:
+    print(f"ERRO ao inserir: {errors}")
+else:
+    print(f"✅ Inseridas {len(registros)} entregas distribuídas em {min(7, len(registros))} dias.")
+    for r in sorted(registros, key=lambda x: x["delivery_date"]):
+        print(f"  {r['delivery_date'].strftime('%d/%m %H:%M')} | {r['shipment_id']} | "
+              f"{r['status']} | {r['distance_km']}km | {r['duration_min']}min")
