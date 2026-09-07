@@ -5,6 +5,7 @@ Combina dados proprietários (BigQuery) com dados reais do Google Maps
 através de function calling do Gemini. O modelo decide, em linguagem
 natural, quando consultar rotas, geocodificação ou a torre de controle.
 """
+import time
 from typing import Callable
 
 from dotenv import load_dotenv
@@ -13,7 +14,6 @@ from google.genai import types
 
 from bigquery_client import BigQueryClient
 from maps_client import MapsClient
-import time
 
 load_dotenv()
 
@@ -145,6 +145,28 @@ class LogisticsAgent:
             client_name=client_name,
         )
 
+    def _generate_with_retry(self, messages, max_retries: int = 5):
+        """Chama o Gemini com retry e backoff para erros 429 (rate limit)."""
+        for attempt in range(max_retries):
+            try:
+                return self.client.models.generate_content(
+                    model=self.model,
+                    contents=messages,
+                    config=types.GenerateContentConfig(
+                        tools=TOOLS,
+                        system_instruction=SYSTEM_INSTRUCTION,
+                    ),
+                )
+            except Exception as exc:
+                # Só faz retry para 429 (quota/rate limit)
+                if "429" not in str(exc) and "RESOURCE_EXHAUSTED" not in str(exc):
+                    raise
+                if attempt == max_retries - 1:
+                    raise
+                # Backoff exponencial: 5s, 10s, 20s, 40s
+                time.sleep(5 * (2 ** attempt))
+        raise RuntimeError("Falha após retries por rate limit")
+
     def _run_function(self, call) -> str:
         """Executa a função solicitada pelo modelo e serializa o resultado."""
         name = call.name
@@ -154,7 +176,7 @@ class LogisticsAgent:
             return f"Função desconhecida: {name}"
         try:
             result = handler(**args)
-        except Exception as exc:  # noqa: BLE001 - repassa erro ao modelo
+        except Exception as exc:
             return f"Erro ao executar {name}: {exc}"
         return str(result)
 
@@ -163,8 +185,7 @@ class LogisticsAgent:
         messages = [types.Content(role="user", parts=[types.Part(text=user_prompt)])]
 
         for _ in range(max_iterations):
-             response = self._generate_with_retry(messages),
-
+            response = self._generate_with_retry(messages)
             if not response.function_calls:
                 return response.text
 
@@ -192,25 +213,3 @@ class LogisticsAgent:
                 )
             )
         return "Número máximo de iterações atingido."
-    
-    def _generate_with_retry(self, messages, max_retries: int = 5):
-        """Chama o Gemini com retry e backoff para erros 429 (rate limit)."""
-        for attempt in range(max_retries):
-            try:
-                return self.client.models.generate_content(
-                    model=self.model,
-                    contents=messages,
-                    config=types.GenerateContentConfig(
-                        tools=TOOLS,
-                        system_instruction=SYSTEM_INSTRUCTION,
-                    ),
-                )
-            except Exception as exc:
-                # Só faz retry para 429 (quota/rate limit)
-                if "429" not in str(exc) and "RESOURCE_EXHAUSTED" not in str(exc):
-                    raise
-                if attempt == max_retries - 1:
-                    raise
-                # Backoff exponencial: 5s, 10s, 20s, 40s
-                time.sleep(5 * (2 ** attempt))
-        raise RuntimeError("Falha após retries por rate limit")

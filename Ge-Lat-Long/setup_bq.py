@@ -6,6 +6,10 @@ Usa CARGA EM LOTE (load_table_from_json) em vez de streaming insert
 (insert_rows_json). Isso grava direto no armazenamento, permitindo que o
 enrich_routes.py faça UPDATE imediato nas linhas (streaming buffer não
 suporta UPDATE/DELETE/MERGE).
+
+As entregas da FarmaPlus têm DESTINOS DIFERENTES (Paulista, Tatuapé e
+Eldorado) para que a demo do agente mostre tempos de rota distintos por
+entrega, evidenciando o cálculo real com trânsito do Google Maps.
 """
 import os
 from datetime import datetime, timedelta, timezone
@@ -52,7 +56,11 @@ table = bigquery.Table(f"{dataset_ref}.{TABLE}", schema=schema)
 client.create_table(table)
 print(f"Tabela {TABLE} recriada OK")
 
-# Seed: 6 entregas (3 da FarmaPlus), datas de hoje
+# Seed: 6 entregas, datas de hoje
+# FarmaPlus (SHIP-001/003/005) com destinos VARIADOS para a demo:
+#   SHIP-001 -> Av. Paulista        (~32 km, centro)
+#   SHIP-003 -> Tatuapé             (~menor distância, zona leste)
+#   SHIP-005 -> Shopping Eldorado   (~maior distância, zona oeste)
 today = datetime.now(timezone.utc).date()
 rows = [
     {
@@ -83,9 +91,9 @@ rows = [
         "shipment_id": "SHIP-003",
         "client_name": "FarmaPlus",
         "origin_address": "CD Guarulhos, SP",
-        "destination_address": "Av. Paulista, 1000, São Paulo, SP",
+        "destination_address": "Shopping Metrô Tatuapé, Rua Domingos Agostim, 91, São Paulo, SP",
         "origin_lat": -23.4655, "origin_lng": -46.5324,
-        "destination_lat": -23.5614, "destination_lng": -46.6559,
+        "destination_lat": -23.5405, "destination_lng": -46.5754,
         "scheduled_delivery": f"{today}T11:00:00",
         "actual_delivery": f"{today}T11:08:00",
         "status": "ON_TIME",
@@ -107,9 +115,9 @@ rows = [
         "shipment_id": "SHIP-005",
         "client_name": "FarmaPlus",
         "origin_address": "CD Guarulhos, SP",
-        "destination_address": "Av. Paulista, 1000, São Paulo, SP",
+        "destination_address": "Shopping Eldorado, Av. Rebouças, 3970, São Paulo, SP",
         "origin_lat": -23.4655, "origin_lng": -46.5324,
-        "destination_lat": -23.5614, "destination_lng": -46.6559,
+        "destination_lat": -23.5650, "destination_lng": -46.6870,
         "scheduled_delivery": f"{today}T14:00:00",
         "actual_delivery": f"{today}T14:50:00",
         "status": "LATE",
@@ -161,6 +169,8 @@ seed_addresses = [
     ("ADR-001", "CD Guarulhos, SP", None, None, "ORIGEM", None),
     ("ADR-002", "Av. Paulista, 1000, São Paulo, SP", None, None, "DESTINO", "FarmaPlus"),
     ("ADR-003", "Rua Augusta, 500, São Paulo, SP", None, None, "DESTINO", "MercadoVita"),
+    ("ADR-004", "Shopping Metrô Tatuapé, Rua Domingos Agostim, 91, São Paulo, SP", None, None, "DESTINO", "FarmaPlus"),
+    ("ADR-005", "Shopping Eldorado, Av. Rebouças, 3970, São Paulo, SP", None, None, "DESTINO", "FarmaPlus"),
 ]
 seed_rows = [
     {
